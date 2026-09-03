@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Rastreador da ISS em Tempo Real</title>
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    header {
+      padding: 1rem;
+      background-color: #1e293b;
+      color: #f8fafc;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    #map {
+      flex: 1;
+      width: 100%;
+    }
+    .info-box {
+      font-size: 0.9rem;
+      color: #cbd5e1;
+    }
+    .coords {
+      font-weight: bold;
+      color: #38bdf8;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🛰️ Posição da ISS</h1>
+    <div class="info-box">
+      <span>Lat: <span id="lat" class="coords">---</span></span> |
+      <span>Lng: <span id="lng" class="coords">---</span></span> |
+      <span>Última atualização: <span id="updated-at" class="coords">--:--:--</span></span>
+    </div>
+  </header>
+
+  <div id="map"></div>
+
+  <!-- JS do Leaflet -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    const API_URL = 'https://api.wheretheiss.at/v1/satellites/25544';
+    const UPDATE_INTERVAL_MS = 5000; // 20 segundos
+
+    const map = L.map('map').setView([0, 0], 3);
+
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+
+    const issIcon = L.icon({
+      iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/d/d0/International_Space_Station.svg',
+      iconSize: [50, 32],
+      iconAnchor: [25, 16],
+      popupAnchor: [0, -16]
+    });
+
+    let issMarker = null;
+    let isFirstLoad = true;
+
+    async function fetchISSPosition() {
+      try {
+        const response = await fetch(API_URL);
+        if (!response.ok) throw new Error('Falha na requisição');
+
+        const data = await response.json();
+        const { latitude, longitude } = data;
+
+        const latFormatted = latitude.toFixed(4);
+        const lngFormatted = longitude.toFixed(4);
+
+        document.getElementById('lat').textContent = latFormatted;
+        document.getElementById('lng').textContent = lngFormatted;
+        document.getElementById('updated-at').textContent = new Date().toLocaleTimeString('pt-BR');
+
+        const newLatLng = [latitude, longitude];
+
+        if (isFirstLoad) {
+          issMarker = L.marker(newLatLng, { icon: issIcon }).addTo(map);
+          issMarker.bindPopup('<b>Estação Espacial Internacional (ISS)</b>').openPopup();
+
+          map.setView(newLatLng, 4);
+          isFirstLoad = false;
+        } else {
+          issMarker.setLatLng(newLatLng);
+          map.panTo(newLatLng, { animate: true, duration: 1.0 });
+        }
+      } catch (error) {
+        console.error('Erro ao buscar dados da ISS:', error);
+      }
+    }
+
+    fetchISSPosition();
+
+    setInterval(fetchISSPosition, UPDATE_INTERVAL_MS);
+  </script>
+</body>
+</html>
